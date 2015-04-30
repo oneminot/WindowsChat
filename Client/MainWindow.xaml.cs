@@ -1,22 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Net;
+﻿using System.ComponentModel;
 using System.Net.Sockets;
-using System.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
-
+using System.Threading;
+using System.Windows;
+using Packets;
 
 namespace Client
 {
@@ -25,12 +12,12 @@ namespace Client
     /// </summary>
     public partial class ChatClient : Window
     {
-        private NetworkStream _connectionStream = null;
-        private static BinaryFormatter _formatter = new BinaryFormatter();
-        private Thread _communicationThread = null;
+        private NetworkStream _connectionStream;
+        private static readonly BinaryFormatter Formatter = new BinaryFormatter();
+        private readonly Thread _communicationThread;
         private delegate void Scribe(object temp);
 
-        public string MyUsername { get; set; }
+        public string MyUsername { private get; set; }
 
         public ChatClient()
         {
@@ -38,16 +25,16 @@ namespace Client
 
             if (_communicationThread == null)
             {
-                _communicationThread = new Thread(new ThreadStart(CommunicationProc));
+                _communicationThread = new Thread(CommunicationProc);
                 _communicationThread.Start();
             }
         }
 
         private void SayHello_Click(object sender, RoutedEventArgs e)
         {
-            Packets.MessagePacket msg = new Packets.MessagePacket();
+            var msg = new MessagePacket();
             msg.Message = MyUsername + ": " + "Hello";
-            _formatter.Serialize(NetConnection.ConnectionStream, msg);
+            Formatter.Serialize(NetConnection.ConnectionStream, msg);
             lstChat.Items.Add(msg.Message);
         }
 
@@ -63,7 +50,7 @@ namespace Client
             {
                 while(true)
                 {
-                    temp = _formatter.Deserialize(NetConnection.ConnectionStream);
+                    temp = Formatter.Deserialize(NetConnection.ConnectionStream);
 
                   
                         if (!lstChat.Dispatcher.CheckAccess())
@@ -74,22 +61,22 @@ namespace Client
                    
                 }
             }
-                catch(SocketException e) { MessageBox.Show("Connection Lost.."); }
+                catch(SocketException) { MessageBox.Show("Connection Lost.."); }
         }
         private void WriteToListBox(object temp)
         {
-            if(temp is Packets.MessagePacket)
+            if(temp is MessagePacket)
             {
-                Packets.MessagePacket msg = (Packets.MessagePacket)temp;
+                var msg = (MessagePacket)temp;
                 lstChat.Items.Add(msg.Message);
             }
         }
 
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void Window_Closing(object sender, CancelEventArgs e)
         {
-            Packets.DisconnectPacket msg = new Packets.DisconnectPacket();
+            var msg = new DisconnectPacket();
             msg.ClientUser = MyUsername;
-            _formatter.Serialize(NetConnection.ConnectionStream, msg);
+            Formatter.Serialize(NetConnection.ConnectionStream, msg);
         }
     }
 }

@@ -1,21 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Threading;
+using System.Windows;
+using System.Windows.Media;
+using Packets;
 
 namespace Server
 {
@@ -24,14 +16,14 @@ namespace Server
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Thread _waitforConnectionThread = null;
+        private Thread _waitforConnectionThread;
         private Socket _connection;
-        private List<Thread> _communicationThreads;
-        private List<ConnectedUser> _userSockets;
-        private List<string> _connectedClientsList = new List<string>();
+        private readonly List<Thread> _communicationThreads;
+        private readonly List<ConnectedUser> _userSockets;
+        private readonly List<string> _connectedClientsList = new List<string>();
         private TcpListener _listener;
         private int _userId;
-        private static BinaryFormatter _formatter = new BinaryFormatter();
+        private static readonly BinaryFormatter Formatter = new BinaryFormatter();
         private delegate void Scribe(object temp);
 
         public MainWindow()
@@ -48,7 +40,7 @@ namespace Server
             if(_waitforConnectionThread  == null)
             {
 
-                _waitforConnectionThread = new Thread(new ThreadStart(WaitforClientConnection));
+                _waitforConnectionThread = new Thread(WaitforClientConnection);
                 _waitforConnectionThread.Start();
                 btnStart.Background = Brushes.Green;
             }
@@ -56,10 +48,10 @@ namespace Server
 
         private void WaitforClientConnection()
         {
-            Byte [] ipAddr = new Byte[4];
+            var ipAddr = new Byte[4];
         //    ipAddr[0] = 127; ipAddr[1] = 0; ipAddr[2] = 0; ipAddr[3] = 1;
-            IPAddress ipAddress = new IPAddress(ipAddr);
-            IPEndPoint listenerPort = new IPEndPoint(IPAddress.Any,30000);
+            var ipAddress = new IPAddress(ipAddr);
+            var listenerPort = new IPEndPoint(IPAddress.Any,30000);
             _listener = new TcpListener(listenerPort);
             _listener.Start();
 
@@ -69,7 +61,7 @@ namespace Server
                 { 
                     _connection = _listener.AcceptSocket(); //blocking call - will wait for a connection request
                   //  MessageBox.Show("Connection Accepted");
-                    ConnectedUser newConnection = new ConnectedUser();
+                    var newConnection = new ConnectedUser();
                   
 
                     _userSockets.Add(new ConnectedUser
@@ -79,7 +71,7 @@ namespace Server
                         Connected = true,
                         Id = _userId++
                     });
-                    _communicationThreads.Add(new Thread(new ParameterizedThreadStart(CommProcedure)));
+                    _communicationThreads.Add(new Thread(CommProcedure));
                     _communicationThreads[_userId - 1].Start(_userSockets[_userId - 1]);
                 }
             }
@@ -106,11 +98,11 @@ namespace Server
                 {
                     if(curUser != null)
                     {
-                        temp = _formatter.Deserialize(curUser.CommStream);
+                        temp = Formatter.Deserialize(curUser.CommStream);
 
-                        if(temp is Packets.ConnectPacket)
+                        if(temp is ConnectPacket)
                         {
-                            Packets.ConnectPacket msg = (Packets.ConnectPacket)temp;
+                            var msg = (ConnectPacket)temp;
 
                             if (msg.P2P)
                             {
@@ -126,24 +118,24 @@ namespace Server
                                 }
 
                                 //send target user IP Address to requester
-                                Packets.IpAddressPacket targIp = new Packets.IpAddressPacket();
+                                var targIp = new IpAddressPacket();
                                 targIp.P2PIpAddress = userIp;
-                                _formatter.Serialize(curUser.CommStream, targIp); //returns IpAddress type object to request to connect
+                                Formatter.Serialize(curUser.CommStream, targIp); //returns IpAddress type object to request to connect
                             }
                             else
                             {
                                curUser.UserName = msg.ClientUser;
                                 
-                                IPEndPoint curUserIpPoint = curUser.UserSocket.RemoteEndPoint as IPEndPoint;
+                                var curUserIpPoint = curUser.UserSocket.RemoteEndPoint as IPEndPoint;
                                 curUser.UserIpAddress = curUserIpPoint.Address;
                                 curUser.Connected = true;
                              
                                 _connectedClientsList.Add(curUser.UserName);
 
-                                Packets.ClientListPackets clientList = new Packets.ClientListPackets();
+                                var clientList = new ClientListPackets();
                                 clientList.UserList = _connectedClientsList;
 
-                                _formatter.Serialize(curUser.CommStream, clientList);
+                                Formatter.Serialize(curUser.CommStream, clientList);
                                 
                                 if(!lstConnectedUsers.Dispatcher.CheckAccess())
                                 {
@@ -152,9 +144,9 @@ namespace Server
                             }
                         }
 
-                        if(temp is Packets.MessagePacket)
+                        if(temp is MessagePacket)
                         {
-                            Packets.MessagePacket msg = (Packets.MessagePacket)temp;
+                            var msg = (MessagePacket)temp;
                     
                             // for each user connected send message received to all 
                             // except the sender
@@ -162,16 +154,16 @@ namespace Server
                             {
                                 if (user.Id != curUser.Id && user.Connected)
                                 {
-                                    _formatter.Serialize(user.CommStream, msg);
+                                    Formatter.Serialize(user.CommStream, msg);
                                 }
                             }
                         }
 
-                        if(temp is Packets.DisconnectPacket)
+                        if(temp is DisconnectPacket)
                         {
                             /// remove the user from the server and clean up the thread/socket
-                            Packets.DisconnectPacket msg = (Packets.DisconnectPacket)temp;
-                            int userId = 0;
+                            var msg = (DisconnectPacket)temp;
+                            var userId = 0;
                             
                             foreach(var user in _userSockets)
                             {
@@ -187,10 +179,10 @@ namespace Server
                             //update the connectedClientList and notify other clients
                             _connectedClientsList.Remove(msg.ClientUser);
 
-                            Packets.ClientListPackets clientList = new Packets.ClientListPackets();
+                            var clientList = new ClientListPackets();
                             clientList.UserList = _connectedClientsList;
 
-                            _formatter.Serialize(curUser.CommStream, clientList);
+                            Formatter.Serialize(curUser.CommStream, clientList);
 
                             if (!lstConnectedUsers.Dispatcher.CheckAccess())
                             {
@@ -221,14 +213,14 @@ namespace Server
             }
             catch (SocketException e)
             { 
-                MessageBox.Show("Client Disconnected" + e.ToString()); 
+                MessageBox.Show("Client Disconnected" + e); 
             }
 
         }
 
         private void WriteToListBox(object temp)
         {
-            List<string> userList = (List<string>)temp;
+            var userList = (List<string>)temp;
             lstConnectedUsers.Items.Clear();
             foreach(var user in userList)
             {
@@ -238,8 +230,8 @@ namespace Server
 
         private void btnStop_Click(object sender, RoutedEventArgs e)
         {
-           int threadListlength = _communicationThreads.Count;
-           for(int i = 0; i < threadListlength; i++)
+           var threadListlength = _communicationThreads.Count;
+           for(var i = 0; i < threadListlength; i++)
            {
                if(_communicationThreads[i] != null)
                {
@@ -258,11 +250,11 @@ namespace Server
            }
         }
 
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void Window_Closing(object sender, CancelEventArgs e)
         {
             //check for null pointer on thread list
-            int threadListlength = _communicationThreads.Count;
-            for (int i = 0; i < threadListlength; i++)
+            var threadListlength = _communicationThreads.Count;
+            for (var i = 0; i < threadListlength; i++)
             {
                 if (_communicationThreads[i] != null)
                 {
