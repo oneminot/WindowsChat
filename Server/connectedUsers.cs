@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 
 namespace Server
 {
@@ -13,7 +12,5 @@ namespace Server
         public int Id { get; set; }
 
         public bool Connected { get; set; }
-
-        public IPAddress UserIpAddress { get; set; }
     }
 }

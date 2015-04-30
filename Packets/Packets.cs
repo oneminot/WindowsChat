@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Net;
 
 namespace Packets
 {
@@ -35,16 +33,11 @@ namespace Packets
     [Serializable]
     public class IpAddressPacket : ChatPacket
     {
-        /// <summary>
-        /// servers response message giving client the ip address of peer
-        /// </summary>
-        public IPAddress P2PIpAddress;
     }
 
     [Serializable]
     public class ClientListPackets : ChatPacket
     {
-        public List<string> UserList;
     }
 
 }

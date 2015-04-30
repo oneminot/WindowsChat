@@ -10,9 +10,8 @@ namespace Client
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class ChatClient : Window
+    public partial class ChatClient
     {
-        private NetworkStream _connectionStream;
         private static readonly BinaryFormatter Formatter = new BinaryFormatter();
         private readonly Thread _communicationThread;
         private delegate void Scribe(object temp);
@@ -32,50 +31,45 @@ namespace Client
 
         private void SayHello_Click(object sender, RoutedEventArgs e)
         {
-            var msg = new MessagePacket();
-            msg.Message = MyUsername + ": " + "Hello";
+            var msg = new MessagePacket {Message = MyUsername + ": " + "Hello"};
             Formatter.Serialize(NetConnection.ConnectionStream, msg);
             lstChat.Items.Add(msg.Message);
         }
 
-        public void SetSocket(ref NetworkStream connection)
+        public void SetSocket()
         {
-            _connectionStream = connection;
         }
 
-        public void CommunicationProc()
+        private void CommunicationProc()
         {
-            object temp;
             try
             {
                 while(true)
                 {
-                    temp = Formatter.Deserialize(NetConnection.ConnectionStream);
+                    var temp = Formatter.Deserialize(NetConnection.ConnectionStream);
 
-                  
-                        if (!lstChat.Dispatcher.CheckAccess())
+
+                    if (!lstChat.Dispatcher.CheckAccess())
                         {
                             Dispatcher.BeginInvoke(new Scribe(WriteToListBox), temp);
                         }
-                  
-                   
                 }
             }
                 catch(SocketException) { MessageBox.Show("Connection Lost.."); }
         }
         private void WriteToListBox(object temp)
         {
-            if(temp is MessagePacket)
+            var packet = temp as MessagePacket;
+            if(packet != null)
             {
-                var msg = (MessagePacket)temp;
+                var msg = packet;
                 lstChat.Items.Add(msg.Message);
             }
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
         {
-            var msg = new DisconnectPacket();
-            msg.ClientUser = MyUsername;
+            var msg = new DisconnectPacket {ClientUser = MyUsername};
             Formatter.Serialize(NetConnection.ConnectionStream, msg);
         }
     }

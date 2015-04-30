@@ -8,12 +8,11 @@ namespace Client
     /// <summary>
     /// Interaction logic for Connect.xaml
     /// </summary>
-    public partial class Connect : Window
+    public partial class Connect
     {
         private Thread _communicationThread;
         private static readonly BinaryFormatter Formatter = new BinaryFormatter();
-        
-        private string _username;
+
         public Connect()
         {
             InitializeComponent();
@@ -29,7 +28,7 @@ namespace Client
             }
 
             var chatWindow = new ChatClient();
-            chatWindow.SetSocket(ref NetConnection.ConnectionStream);
+            chatWindow.SetSocket();
             chatWindow.MyUsername = txtUserName.Text;
             chatWindow.Show();
             Close();
@@ -38,11 +37,13 @@ namespace Client
 
         private void SetUser(object user)
         {
-            var msg = new ConnectPacket();
-           
-            msg.ClientUser = (string)user;
-            msg.P2P = false;
-            msg.TargetUser = null;
+            var msg = new ConnectPacket
+            {
+                ClientUser = (string) user,
+                P2P = false,
+                TargetUser = null
+            };
+
             Formatter.Serialize(NetConnection.ConnectionStream, msg);
         }
     }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
@@ -14,7 +13,7 @@ namespace Server
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow
     {
         private Thread _waitforConnectionThread;
         private Socket _connection;
@@ -48,9 +47,6 @@ namespace Server
 
         private void WaitforClientConnection()
         {
-            var ipAddr = new Byte[4];
-        //    ipAddr[0] = 127; ipAddr[1] = 0; ipAddr[2] = 0; ipAddr[3] = 1;
-            var ipAddress = new IPAddress(ipAddr);
             var listenerPort = new IPEndPoint(IPAddress.Any,30000);
             _listener = new TcpListener(listenerPort);
             _listener.Start();
@@ -61,7 +57,6 @@ namespace Server
                 { 
                     _connection = _listener.AcceptSocket(); //blocking call - will wait for a connection request
                   //  MessageBox.Show("Connection Accepted");
-                    var newConnection = new ConnectedUser();
                   
 
                     _userSockets.Add(new ConnectedUser
@@ -75,7 +70,7 @@ namespace Server
                     _communicationThreads[_userId - 1].Start(_userSockets[_userId - 1]);
                 }
             }
-            catch (SocketException sockExcep)
+            catch (SocketException)
             {
                 _listener = null;
             }
@@ -86,54 +81,49 @@ namespace Server
         private void CommProcedure(object obj) //should only be passing in userSockets
         {
             ConnectedUser curUser = null;
-          
-            if(obj is ConnectedUser)
+
+            var connectedUser = obj as ConnectedUser;
+            if(connectedUser != null)
             {
-                curUser = (ConnectedUser)obj;
+                curUser = connectedUser;
             }
-            object temp;
             try
             {
                 while(true)
                 {
                     if(curUser != null)
                     {
-                        temp = Formatter.Deserialize(curUser.CommStream);
+                        var temp = Formatter.Deserialize(curUser.CommStream);
 
-                        if(temp is ConnectPacket)
+                        var packet = temp as ConnectPacket;
+                        if(packet != null)
                         {
-                            var msg = (ConnectPacket)temp;
+                            var msg = packet;
 
                             if (msg.P2P)
                             {
                                 curUser.UserName = msg.ClientUser;
-                                IPAddress userIp = null;
                                 foreach(var user in _userSockets)
                                 {
                                     // find the requested user's IPAddress
                                     if(user.UserName == msg.TargetUser)
                                     {
-                                        userIp = user.UserIpAddress;
                                     }
                                 }
 
                                 //send target user IP Address to requester
                                 var targIp = new IpAddressPacket();
-                                targIp.P2PIpAddress = userIp;
                                 Formatter.Serialize(curUser.CommStream, targIp); //returns IpAddress type object to request to connect
                             }
                             else
                             {
                                curUser.UserName = msg.ClientUser;
                                 
-                                var curUserIpPoint = curUser.UserSocket.RemoteEndPoint as IPEndPoint;
-                                curUser.UserIpAddress = curUserIpPoint.Address;
                                 curUser.Connected = true;
                              
                                 _connectedClientsList.Add(curUser.UserName);
 
                                 var clientList = new ClientListPackets();
-                                clientList.UserList = _connectedClientsList;
 
                                 Formatter.Serialize(curUser.CommStream, clientList);
                                 
@@ -144,9 +134,10 @@ namespace Server
                             }
                         }
 
-                        if(temp is MessagePacket)
+                        var messagePacket = temp as MessagePacket;
+                        if(messagePacket != null)
                         {
-                            var msg = (MessagePacket)temp;
+                            var msg = messagePacket;
                     
                             // for each user connected send message received to all 
                             // except the sender
@@ -159,10 +150,11 @@ namespace Server
                             }
                         }
 
-                        if(temp is DisconnectPacket)
+                        var disconnectPacket = temp as DisconnectPacket;
+                        if(disconnectPacket != null)
                         {
-                            /// remove the user from the server and clean up the thread/socket
-                            var msg = (DisconnectPacket)temp;
+                            // remove the user from the server and clean up the thread/socket
+                            var msg = disconnectPacket;
                             var userId = 0;
                             
                             foreach(var user in _userSockets)
@@ -180,7 +172,6 @@ namespace Server
                             _connectedClientsList.Remove(msg.ClientUser);
 
                             var clientList = new ClientListPackets();
-                            clientList.UserList = _connectedClientsList;
 
                             Formatter.Serialize(curUser.CommStream, clientList);
 
@@ -201,7 +192,7 @@ namespace Server
                                 _communicationThreads[userId].Join();
                                 _communicationThreads.RemoveAt(userId);
                             }
-                            catch (ThreadAbortException e) 
+                            catch (ThreadAbortException) 
                             { 
                                 //do nothing if the thread is being terminated here
                                 //handle the exception thrown by Abort() without the message from the disconnect
