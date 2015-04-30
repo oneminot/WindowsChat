@@ -24,10 +24,10 @@ namespace Client
     /// </summary>
     public partial class Connect : Window
     {
-        private Thread communicationThread = null;
-        private static BinaryFormatter formatter = new BinaryFormatter();
+        private Thread _communicationThread = null;
+        private static BinaryFormatter _formatter = new BinaryFormatter();
         
-        private string username;
+        private string _username;
         public Connect()
         {
             InitializeComponent();
@@ -35,29 +35,29 @@ namespace Client
 
         private void btnConnect_Click(object sender, RoutedEventArgs e)
         {
-            NetConnection.connect(txtOct1.Text, txtOct2.Text, txtOct3.Text, txtOct4.Text);
-            if(communicationThread == null)
+            NetConnection.Connect(txtOct1.Text, txtOct2.Text, txtOct3.Text, txtOct4.Text);
+            if(_communicationThread == null)
             {
-                communicationThread = new Thread(new ParameterizedThreadStart(setUser));
-                communicationThread.Start(txtUserName.Text);
+                _communicationThread = new Thread(new ParameterizedThreadStart(SetUser));
+                _communicationThread.Start(txtUserName.Text);
             }
 
             ChatClient chatWindow = new ChatClient();
-            chatWindow.setSocket(ref NetConnection.ConnectionStream);
+            chatWindow.SetSocket(ref NetConnection.ConnectionStream);
             chatWindow.MyUsername = txtUserName.Text;
             chatWindow.Show();
             this.Close();
          
         }
 
-        private void setUser(object user)
+        private void SetUser(object user)
         {
-            Packets.connectPacket msg = new Packets.connectPacket();
+            Packets.ConnectPacket msg = new Packets.ConnectPacket();
            
-            msg.clientUser = (string)user;
-            msg.p2p = false;
-            msg.targetUser = null;
-            formatter.Serialize(NetConnection.ConnectionStream, msg);
+            msg.ClientUser = (string)user;
+            msg.P2P = false;
+            msg.TargetUser = null;
+            _formatter.Serialize(NetConnection.ConnectionStream, msg);
         }
     }
 }

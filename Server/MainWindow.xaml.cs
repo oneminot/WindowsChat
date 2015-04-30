@@ -24,80 +24,80 @@ namespace Server
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Thread waitforConnectionThread = null;
-        private Socket connection;
-        private List<Thread> communicationThreads;
-        private List<connectedUser> userSockets;
-        private List<string> connectedClientsList = new List<string>();
-        private TcpListener listener;
-        private int userId;
-        private static BinaryFormatter formatter = new BinaryFormatter();
-        private delegate void scribe(object temp);
+        private Thread _waitforConnectionThread = null;
+        private Socket _connection;
+        private List<Thread> _communicationThreads;
+        private List<ConnectedUser> _userSockets;
+        private List<string> _connectedClientsList = new List<string>();
+        private TcpListener _listener;
+        private int _userId;
+        private static BinaryFormatter _formatter = new BinaryFormatter();
+        private delegate void Scribe(object temp);
 
         public MainWindow()
         {
             InitializeComponent();
-            communicationThreads = new List<Thread>();
-            userSockets = new List<connectedUser>();
+            _communicationThreads = new List<Thread>();
+            _userSockets = new List<ConnectedUser>();
             btnStart_Click(null, null);
         }
         
         private void btnStart_Click(object sender, RoutedEventArgs e)
         {
-            userId = 0;
-            if(waitforConnectionThread  == null)
+            _userId = 0;
+            if(_waitforConnectionThread  == null)
             {
 
-                waitforConnectionThread = new Thread(new ThreadStart(waitforClientConnection));
-                waitforConnectionThread.Start();
+                _waitforConnectionThread = new Thread(new ThreadStart(WaitforClientConnection));
+                _waitforConnectionThread.Start();
                 btnStart.Background = Brushes.Green;
             }
         }
 
-        private void waitforClientConnection()
+        private void WaitforClientConnection()
         {
             Byte [] ipAddr = new Byte[4];
         //    ipAddr[0] = 127; ipAddr[1] = 0; ipAddr[2] = 0; ipAddr[3] = 1;
             IPAddress ipAddress = new IPAddress(ipAddr);
             IPEndPoint listenerPort = new IPEndPoint(IPAddress.Any,30000);
-            listener = new TcpListener(listenerPort);
-            listener.Start();
+            _listener = new TcpListener(listenerPort);
+            _listener.Start();
 
             try
             {
                 while(true)
                 { 
-                    connection = listener.AcceptSocket(); //blocking call - will wait for a connection request
+                    _connection = _listener.AcceptSocket(); //blocking call - will wait for a connection request
                   //  MessageBox.Show("Connection Accepted");
-                    connectedUser newConnection = new connectedUser();
+                    ConnectedUser newConnection = new ConnectedUser();
                   
 
-                    userSockets.Add(new connectedUser
+                    _userSockets.Add(new ConnectedUser
                     {
-                        userSocket = connection,
-                        commStream = new NetworkStream(connection),
+                        UserSocket = _connection,
+                        CommStream = new NetworkStream(_connection),
                         Connected = true,
-                        ID = userId++
+                        Id = _userId++
                     });
-                    communicationThreads.Add(new Thread(new ParameterizedThreadStart(commProcedure)));
-                    communicationThreads[userId - 1].Start(userSockets[userId - 1]);
+                    _communicationThreads.Add(new Thread(new ParameterizedThreadStart(CommProcedure)));
+                    _communicationThreads[_userId - 1].Start(_userSockets[_userId - 1]);
                 }
             }
             catch (SocketException sockExcep)
             {
-                listener = null;
+                _listener = null;
             }
 
             
         }
 
-        private void commProcedure(object obj) //should only be passing in userSockets
+        private void CommProcedure(object obj) //should only be passing in userSockets
         {
-            connectedUser curUser = null;
+            ConnectedUser curUser = null;
           
-            if(obj is connectedUser)
+            if(obj is ConnectedUser)
             {
-                curUser = (connectedUser)obj;
+                curUser = (ConnectedUser)obj;
             }
             object temp;
             try
@@ -106,108 +106,108 @@ namespace Server
                 {
                     if(curUser != null)
                     {
-                        temp = formatter.Deserialize(curUser.commStream);
+                        temp = _formatter.Deserialize(curUser.CommStream);
 
-                        if(temp is Packets.connectPacket)
+                        if(temp is Packets.ConnectPacket)
                         {
-                            Packets.connectPacket msg = (Packets.connectPacket)temp;
+                            Packets.ConnectPacket msg = (Packets.ConnectPacket)temp;
 
-                            if (msg.p2p)
+                            if (msg.P2P)
                             {
-                                curUser.UserName = msg.clientUser;
-                                IPAddress userIP = null;
-                                foreach(var user in userSockets)
+                                curUser.UserName = msg.ClientUser;
+                                IPAddress userIp = null;
+                                foreach(var user in _userSockets)
                                 {
                                     // find the requested user's IPAddress
-                                    if(user.UserName == msg.targetUser)
+                                    if(user.UserName == msg.TargetUser)
                                     {
-                                        userIP = user.UserIpAddress;
+                                        userIp = user.UserIpAddress;
                                     }
                                 }
 
                                 //send target user IP Address to requester
                                 Packets.IpAddressPacket targIp = new Packets.IpAddressPacket();
-                                targIp.p2pIpAddress = userIP;
-                                formatter.Serialize(curUser.commStream, targIp); //returns IpAddress type object to request to connect
+                                targIp.P2PIpAddress = userIp;
+                                _formatter.Serialize(curUser.CommStream, targIp); //returns IpAddress type object to request to connect
                             }
                             else
                             {
-                               curUser.UserName = msg.clientUser;
+                               curUser.UserName = msg.ClientUser;
                                 
-                                IPEndPoint curUserIpPoint = curUser.userSocket.RemoteEndPoint as IPEndPoint;
+                                IPEndPoint curUserIpPoint = curUser.UserSocket.RemoteEndPoint as IPEndPoint;
                                 curUser.UserIpAddress = curUserIpPoint.Address;
                                 curUser.Connected = true;
                              
-                                connectedClientsList.Add(curUser.UserName);
+                                _connectedClientsList.Add(curUser.UserName);
 
-                                Packets.clientListPackets clientList = new Packets.clientListPackets();
-                                clientList.userList = connectedClientsList;
+                                Packets.ClientListPackets clientList = new Packets.ClientListPackets();
+                                clientList.UserList = _connectedClientsList;
 
-                                formatter.Serialize(curUser.commStream, clientList);
+                                _formatter.Serialize(curUser.CommStream, clientList);
                                 
                                 if(!lstConnectedUsers.Dispatcher.CheckAccess())
                                 {
-                                    Dispatcher.BeginInvoke(new scribe(writeToListBox), connectedClientsList);
+                                    Dispatcher.BeginInvoke(new Scribe(WriteToListBox), _connectedClientsList);
                                 }
                             }
                         }
 
-                        if(temp is Packets.messagePacket)
+                        if(temp is Packets.MessagePacket)
                         {
-                            Packets.messagePacket msg = (Packets.messagePacket)temp;
+                            Packets.MessagePacket msg = (Packets.MessagePacket)temp;
                     
                             // for each user connected send message received to all 
                             // except the sender
-                            foreach(var user in userSockets)
+                            foreach(var user in _userSockets)
                             {
-                                if (user.ID != curUser.ID && user.Connected)
+                                if (user.Id != curUser.Id && user.Connected)
                                 {
-                                    formatter.Serialize(user.commStream, msg);
+                                    _formatter.Serialize(user.CommStream, msg);
                                 }
                             }
                         }
 
-                        if(temp is Packets.disconnectPacket)
+                        if(temp is Packets.DisconnectPacket)
                         {
                             /// remove the user from the server and clean up the thread/socket
-                            Packets.disconnectPacket msg = (Packets.disconnectPacket)temp;
+                            Packets.DisconnectPacket msg = (Packets.DisconnectPacket)temp;
                             int userId = 0;
                             
-                            foreach(var user in userSockets)
+                            foreach(var user in _userSockets)
                             {
-                                if(msg.clientUser == user.UserName)
+                                if(msg.ClientUser == user.UserName)
                                 {
-                                    userId = user.ID;
+                                    userId = user.Id;
                                 }
                             }
 
                             //disconnect socket and clean up threads
-                            userSockets[userId].Connected = false;
+                            _userSockets[userId].Connected = false;
 
                             //update the connectedClientList and notify other clients
-                            connectedClientsList.Remove(msg.clientUser);
+                            _connectedClientsList.Remove(msg.ClientUser);
 
-                            Packets.clientListPackets clientList = new Packets.clientListPackets();
-                            clientList.userList = connectedClientsList;
+                            Packets.ClientListPackets clientList = new Packets.ClientListPackets();
+                            clientList.UserList = _connectedClientsList;
 
-                            formatter.Serialize(curUser.commStream, clientList);
+                            _formatter.Serialize(curUser.CommStream, clientList);
 
                             if (!lstConnectedUsers.Dispatcher.CheckAccess())
                             {
-                                Dispatcher.BeginInvoke(new scribe(writeToListBox), connectedClientsList);
+                                Dispatcher.BeginInvoke(new Scribe(WriteToListBox), _connectedClientsList);
                             }
 
                             //shutdown the connection to the client and kill the thread
-                            userSockets[userId].userSocket.Shutdown(SocketShutdown.Both);
-                            userSockets[userId].userSocket.Dispose();
-                            userSockets[userId].userSocket.Close();
-                            userSockets.RemoveAt(userId);
+                            _userSockets[userId].UserSocket.Shutdown(SocketShutdown.Both);
+                            _userSockets[userId].UserSocket.Dispose();
+                            _userSockets[userId].UserSocket.Close();
+                            _userSockets.RemoveAt(userId);
 
                             try
                             {
-                                communicationThreads[userId].Abort();
-                                communicationThreads[userId].Join();
-                                communicationThreads.RemoveAt(userId);
+                                _communicationThreads[userId].Abort();
+                                _communicationThreads[userId].Join();
+                                _communicationThreads.RemoveAt(userId);
                             }
                             catch (ThreadAbortException e) 
                             { 
@@ -226,7 +226,7 @@ namespace Server
 
         }
 
-        private void writeToListBox(object temp)
+        private void WriteToListBox(object temp)
         {
             List<string> userList = (List<string>)temp;
             lstConnectedUsers.Items.Clear();
@@ -238,46 +238,46 @@ namespace Server
 
         private void btnStop_Click(object sender, RoutedEventArgs e)
         {
-           int threadListlength = communicationThreads.Count;
+           int threadListlength = _communicationThreads.Count;
            for(int i = 0; i < threadListlength; i++)
            {
-               if(communicationThreads[i] != null)
+               if(_communicationThreads[i] != null)
                {
-                   connection.Close();
-                   communicationThreads[i].Abort();
-                   communicationThreads[i].Join();
-                   communicationThreads[i] = null;
+                   _connection.Close();
+                   _communicationThreads[i].Abort();
+                   _communicationThreads[i].Join();
+                   _communicationThreads[i] = null;
                }
            }
-           if(waitforConnectionThread != null)
+           if(_waitforConnectionThread != null)
            {
-               listener.Stop();
-               waitforConnectionThread.Abort();
-               waitforConnectionThread.Join();
-               waitforConnectionThread = null;
+               _listener.Stop();
+               _waitforConnectionThread.Abort();
+               _waitforConnectionThread.Join();
+               _waitforConnectionThread = null;
            }
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             //check for null pointer on thread list
-            int threadListlength = communicationThreads.Count;
+            int threadListlength = _communicationThreads.Count;
             for (int i = 0; i < threadListlength; i++)
             {
-                if (communicationThreads[i] != null)
+                if (_communicationThreads[i] != null)
                 {
-                    connection.Close();
-                    communicationThreads[i].Abort();
-                    communicationThreads[i].Join();
-                    communicationThreads[i] = null;
+                    _connection.Close();
+                    _communicationThreads[i].Abort();
+                    _communicationThreads[i].Join();
+                    _communicationThreads[i] = null;
                 }
             }
-            if (waitforConnectionThread != null)
+            if (_waitforConnectionThread != null)
             {
-                listener.Stop();
-                waitforConnectionThread.Abort();
-                waitforConnectionThread.Join();
-                waitforConnectionThread = null;
+                _listener.Stop();
+                _waitforConnectionThread.Abort();
+                _waitforConnectionThread.Join();
+                _waitforConnectionThread = null;
             }
         }
 

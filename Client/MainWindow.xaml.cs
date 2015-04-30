@@ -25,50 +25,50 @@ namespace Client
     /// </summary>
     public partial class ChatClient : Window
     {
-        private string username;
-        private NetworkStream ConnectionStream = null;
-        private static BinaryFormatter formatter = new BinaryFormatter();
-        private Thread communicationThread = null;
-        private delegate void scribe(object temp);
+        private NetworkStream _connectionStream = null;
+        private static BinaryFormatter _formatter = new BinaryFormatter();
+        private Thread _communicationThread = null;
+        private delegate void Scribe(object temp);
 
-        public string MyUsername { get { return username; } set { username = value; } }
+        public string MyUsername { get; set; }
+
         public ChatClient()
         {
             InitializeComponent();
 
-            if (communicationThread == null)
+            if (_communicationThread == null)
             {
-                communicationThread = new Thread(new ThreadStart(communicationProc));
-                communicationThread.Start();
+                _communicationThread = new Thread(new ThreadStart(CommunicationProc));
+                _communicationThread.Start();
             }
         }
 
         private void SayHello_Click(object sender, RoutedEventArgs e)
         {
-            Packets.messagePacket msg = new Packets.messagePacket();
-            msg.message = MyUsername + ": " + "Hello";
-            formatter.Serialize(NetConnection.ConnectionStream, msg);
-            lstChat.Items.Add(msg.message);
+            Packets.MessagePacket msg = new Packets.MessagePacket();
+            msg.Message = MyUsername + ": " + "Hello";
+            _formatter.Serialize(NetConnection.ConnectionStream, msg);
+            lstChat.Items.Add(msg.Message);
         }
 
-        public void setSocket(ref NetworkStream connection)
+        public void SetSocket(ref NetworkStream connection)
         {
-            ConnectionStream = connection;
+            _connectionStream = connection;
         }
 
-        public void communicationProc()
+        public void CommunicationProc()
         {
             object temp;
             try
             {
                 while(true)
                 {
-                    temp = formatter.Deserialize(NetConnection.ConnectionStream);
+                    temp = _formatter.Deserialize(NetConnection.ConnectionStream);
 
                   
                         if (!lstChat.Dispatcher.CheckAccess())
                         {
-                            Dispatcher.BeginInvoke(new scribe(writeToListBox), temp);
+                            Dispatcher.BeginInvoke(new Scribe(WriteToListBox), temp);
                         }
                   
                    
@@ -76,20 +76,20 @@ namespace Client
             }
                 catch(SocketException e) { MessageBox.Show("Connection Lost.."); }
         }
-        private void writeToListBox(object temp)
+        private void WriteToListBox(object temp)
         {
-            if(temp is Packets.messagePacket)
+            if(temp is Packets.MessagePacket)
             {
-                Packets.messagePacket msg = (Packets.messagePacket)temp;
-                lstChat.Items.Add(msg.message);
+                Packets.MessagePacket msg = (Packets.MessagePacket)temp;
+                lstChat.Items.Add(msg.Message);
             }
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            Packets.disconnectPacket msg = new Packets.disconnectPacket();
-            msg.clientUser = MyUsername;
-            formatter.Serialize(NetConnection.ConnectionStream, msg);
+            Packets.DisconnectPacket msg = new Packets.DisconnectPacket();
+            msg.ClientUser = MyUsername;
+            _formatter.Serialize(NetConnection.ConnectionStream, msg);
         }
     }
 }

@@ -9,7 +9,7 @@ namespace Packets
 {
     public class User
     {
-        string username;
-        IPAddress IpAddress;
+        string _username;
+        IPAddress _ipAddress;
     }
 }

@@ -12,7 +12,7 @@ namespace Client
     {
         public static NetworkStream ConnectionStream = null;
      
-        public static void connect(string oct1, string oct2, string oct3, string oct4)
+        public static void Connect(string oct1, string oct2, string oct3, string oct4)
         {
             Byte [] ipAddr = new Byte[4];
             ipAddr[0] = Convert.ToByte(oct1);
